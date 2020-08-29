@@ -11,4 +11,3 @@ class Settings(BaseSettings):
     minio_uri = '127.0.0.1:9000'
     minio_access_key = os.environ.get('MINIO_ACCESS_KEY')
     minio_secret_key = os.environ.get('MINIO_SECRET_KEY')
-

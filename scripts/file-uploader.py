@@ -1,19 +1,88 @@
-import os
-import filetype
+import copy
 import datetime as dt
+import filetype
+import json
+import logging
+import os
 
+from minio import Minio
 from PIL import Image
-from resizeimage import resizeimage
-
-from api.minio import MinioHandler
-from api.settings import Settings
-
-from policy import policy_read_only
 from pymongo import MongoClient
 from pymongo.errors import BulkWriteError
+from resizeimage import resizeimage
 
 
-s = Settings()
+class MinioHandler:
+    _client: Minio = Minio('127.0.0.1:9000',
+                     access_key='Q3AM3UQ867SPQQA43P2F',
+                     secret_key='zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG',
+                     secure=False)
+
+    def __init__(self):
+
+        self._default_policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "AWS": [
+                            "*"
+                        ]
+                    },
+                    "Action": [
+                        "s3:GetBucketLocation",
+                        "s3:ListBucket",
+                        "s3:ListBucketMultipartUploads"
+                    ],
+                    "Resource": [
+                        "arn:aws:s3:::{bucket}"
+                    ]
+                },
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "AWS": [
+                            "*"
+                        ]
+                    },
+                    "Action": [
+                        "s3:DeleteObject",
+                        "s3:GetObject",
+                        "s3:ListMultipartUploadParts",
+                        "s3:PutObject",
+                        "s3:AbortMultipartUpload"
+                    ],
+                    "Resource": [
+                        "arn:aws:s3:::{bucket}/*"
+                    ]
+                }
+            ]
+        }
+
+    def _create_bucket(self, bucket: str) -> None:
+        try:
+            logging.info(f'Creating a new bucket [{bucket}]')
+            self._client.make_bucket(bucket)
+            self._set_bucket_policy(bucket)
+            return None
+        except Exception:
+            logging.exception(f'Error occured while creating the bucket [{bucket}]')
+
+    def _set_bucket_policy(self, bucket: str, policy: dict = None) -> None:
+        if policy is None:
+            policy = copy.deepcopy(self._default_policy)
+        resource = policy['Statement'][0]['Resource'][0].format(bucket=bucket)
+        policy['Statement'][0]['Resource'][0] = resource
+        policy['Statement'][1]['Resource'][0] = f'{resource}/*'
+
+        try:
+            self._client.set_bucket_policy(bucket_name=bucket,
+                                           policy=json.dumps(policy))
+            return None
+        except Exception:
+            logging.exception(f'Unable to set bucket policy: {policy}')
+
 
 IMAGE_WIDTH = 800
 ALLOWED_EXTENSIONS = ['png', 'jpg']
@@ -23,11 +92,11 @@ IMAGES_FOLDER_PATH = os.path.join('/'.join(os.getcwd().split('/')[:3]),
 
 minioClient = MinioHandler()
 
-mongoClient = MongoClient(host=s.mongo_host,
-                          port=s.mongo_port,
+mongoClient = MongoClient(host='127.0.0.1',
+                          port=27017,
                           connect=True)
 
-db = mongoClient[s.mongo_db_name]
+db = mongoClient['design']
 
 
 def find_images_path():
@@ -122,10 +191,6 @@ def drop_minio_and_mongo_data():
 
 
 if __name__ == '__main__':
-    # drop_minio_and_mongo_data()
-    # buckets, images_path = find_images_path()
-    # upload_data_in_minio_and_mongo(images_path)
-    minioClient.get_url('furniture_1')
-
-
-#http://localhost:9000/furniture/furniture_2_width_800.jpg
+    drop_minio_and_mongo_data()
+    buckets, images_path = find_images_path()
+    upload_data_in_minio_and_mongo(images_path)
