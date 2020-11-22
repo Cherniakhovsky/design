@@ -10,6 +10,7 @@ pydevd = "*"
 
 [packages]
 aiohttp = "*"
+aiohttp-cors = "*"
 motor = "*"
 pydantic = "*"
 minio = "*"
