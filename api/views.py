@@ -3,6 +3,7 @@ from aiohttp import web
 from api.models import Image
 from api.minio import MinioHandler
 
+IMAGE_WIDTH = 800
 
 minioClient = MinioHandler()
 
