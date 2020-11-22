@@ -117,7 +117,7 @@ def upload_data_in_minio_and_mongo(images_path):
         if filetype_obj and filetype_obj.extension in ALLOWED_EXTENSIONS:
             splitted_path = image_path.split(os.sep)
             image_name, _ = os.path.splitext(splitted_path[-1])
-            ext = filetype_obj.extension
+            extension = filetype_obj.extension
 
             bucket = splitted_path[-2]
 
@@ -125,15 +125,17 @@ def upload_data_in_minio_and_mongo(images_path):
                 minioClient._create_bucket(bucket)
             try:
                 resized_img_name, resized_img_path = resize_image(
-                    image_path, image_name, ext, IMAGE_WIDTH)
+                    image_path, image_name, extension, IMAGE_WIDTH)
             except Exception as err:
                 print(err)
                 continue
 
-            save_img_to_minio(bucket, image_path, image_name, ext)
-            save_img_to_minio(bucket, resized_img_path, resized_img_name, ext)
+            save_img_to_minio(bucket, image_path, image_name, extension)
+            save_img_to_minio(bucket, resized_img_path, resized_img_name, extension)
 
-            mongo_data.append({'_id': image_name, 'ext': ext})
+            mongo_data.append({'_id': image_name,
+                               'extension': extension,
+                               'bucket': bucket})
 
     try:
         db.images.insert_many(mongo_data)
@@ -160,12 +162,13 @@ def resize_image(image_path, image_name, ext, width_size):
     return resized_img_name, resized_img_path
 
 
-def save_img_to_minio(bucket, resized_img_path, resized_img_name, ext):
+def save_img_to_minio(bucket, resized_img_path, resized_img_name, extension):
     try:
         with open(resized_img_path, 'rb') as f:
             file_stat = os.stat(resized_img_path)
-            minioClient._client.put_object(bucket, f'{resized_img_name}.{ext}',
-                                 f, file_stat.st_size)
+            minioClient._client.put_object(bucket,
+                                           f'{resized_img_name}.{extension}',
+                                           f, file_stat.st_size)
     except Exception as err:
         print(err)
 

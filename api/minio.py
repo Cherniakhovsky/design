@@ -82,7 +82,7 @@ class MinioHandler:
 
     def get_url(self, image, image_width):
         image_name = image['_id']
-        ext = image['ext']
+        ext = image['extension']
         bucket, _ = image['_id'].split('_')
         image_name_resized = '_'.join([image_name, f'width_{image_width}'])
         return '/'.join([self._client._endpoint_url, bucket, f'{image_name_resized}.{ext}'])
